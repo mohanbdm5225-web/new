@@ -1,5 +1,9 @@
-import { redirect } from "next/navigation";
-
 export default function Home() {
-  redirect("/dashboard");
+  return (
+    <main className="min-h-screen bg-slate-100 flex items-center justify-center">
+      <h1 className="text-3xl font-bold text-slate-900">
+        Geo PM Dashboard Live 🚀
+      </h1>
+    </main>
+  );
 }
