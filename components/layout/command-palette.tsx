@@ -18,6 +18,7 @@ type Item = {
 const pages: Item[] = [
   { id: "p-dash", label: "Dashboard", hint: "Main overview", href: "/dashboard", group: "Pages" },
   { id: "p-proj", label: "Projects", hint: "All projects", href: "/projects", group: "Pages" },
+  { id: "p-map", label: "Map", hint: "Geographic project view", href: "/map", group: "Pages" },
   { id: "p-task", label: "Tasks", hint: "Kanban board", href: "/tasks", group: "Pages" },
   { id: "p-team", label: "Team", hint: "Members & workload", href: "/resources", group: "Pages" },
   { id: "p-eq", label: "Equipment", hint: "Inventory", href: "/equipment", group: "Pages" },

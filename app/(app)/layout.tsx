@@ -18,11 +18,13 @@ import {
   FileText,
   Settings,
   X,
+  Map,
 } from "lucide-react";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "Projects", icon: FolderKanban },
+  { href: "/map", label: "Map", icon: Map },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/resources", label: "Team", icon: Users },
   { href: "/equipment", label: "Equipment", icon: Wrench },

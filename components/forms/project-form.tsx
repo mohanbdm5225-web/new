@@ -8,6 +8,7 @@ import { Select } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useTeam } from "@/lib/use-store";
 import { uid } from "@/lib/id";
+import { MapPin } from "lucide-react";
 
 const TYPES: ProjectType[] = ["Drone Survey", "DGPS Survey", "LiDAR", "Bathymetry", "GIS/CAD", "Geospatial", "Tender Work"];
 const STATUSES: ProjectStatus[] = ["Planning", "Active", "On Hold", "Completed", "Cancelled"];
@@ -54,9 +55,42 @@ export function ProjectForm({
           <Input value={form.client} onChange={(e) => set("client", e.target.value)} required />
         </Field>
         <Field label="Location">
-          <Input value={form.location} onChange={(e) => set("location", e.target.value)} />
+          <Input value={form.location} onChange={(e) => set("location", e.target.value)} placeholder="City, State" />
         </Field>
       </div>
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <Field label="Latitude">
+          <div className="relative">
+            <MapPin className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            <Input
+              type="number"
+              step="any"
+              value={form.latitude ?? ""}
+              onChange={(e) => set("latitude", e.target.value ? Number(e.target.value) : undefined)}
+              placeholder="13.0827"
+              className="pl-9"
+            />
+          </div>
+        </Field>
+        <Field label="Longitude">
+          <div className="relative">
+            <MapPin className="absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+            <Input
+              type="number"
+              step="any"
+              value={form.longitude ?? ""}
+              onChange={(e) => set("longitude", e.target.value ? Number(e.target.value) : undefined)}
+              placeholder="80.2707"
+              className="pl-9"
+            />
+          </div>
+        </Field>
+      </div>
+
+      <p className="-mt-2 text-[10px] text-slate-500">
+        Tip: get coordinates from Google Maps — right-click anywhere → click the lat/lng to copy.
+      </p>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Field label="Type">
@@ -129,6 +163,8 @@ function createEmptyProject(): Project {
     location: "",
     managerId: "",
     teamIds: [],
+    latitude: undefined,
+    longitude: undefined,
   };
 }
 

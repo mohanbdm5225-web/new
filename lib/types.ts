@@ -33,6 +33,8 @@ export interface Project {
   location: string;
   managerId: string;
   teamIds: string[];
+  latitude?: number;
+  longitude?: number;
 }
 
 export type TaskStatus = "Backlog" | "To Do" | "In Progress" | "Review" | "Done";
