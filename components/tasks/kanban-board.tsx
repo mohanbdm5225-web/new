@@ -1,20 +1,43 @@
 "use client";
 
-import { useState } from "react";
 import { Task, TaskStatus } from "@/lib/types";
-import { tasks as seedTasks, getMemberById, projects } from "@/lib/mock-data";
+import { useTasks, useTeam, useProjects } from "@/lib/use-store";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDate, initials, daysUntil } from "@/lib/utils";
 import { motion } from "framer-motion";
-import { MoreHorizontal, Calendar, Flag } from "lucide-react";
+import { Calendar, Flag, Pencil, Trash2 } from "lucide-react";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
 
 const COLUMNS: TaskStatus[] = ["Backlog", "To Do", "In Progress", "Review", "Done"];
 
-export function KanbanBoard() {
-  const [items, setItems] = useState<Task[]>(seedTasks);
+export function KanbanBoard({
+  onEditTask,
+}: {
+  onEditTask?: (t: Task) => void;
+}) {
+  const { items, update, remove } = useTasks();
+  const { items: team } = useTeam();
+  const { items: projects } = useProjects();
+  const toast = useToast();
+  const { confirm } = useConfirm();
 
   const updateStatus = (id: string, status: TaskStatus) => {
-    setItems((prev) => prev.map((t) => (t.id === id ? { ...t, status } : t)));
+    update(id, { status });
+    toast.info("Status updated", status);
+  };
+
+  const handleDelete = async (t: Task) => {
+    const ok = await confirm({
+      title: "Delete this task?",
+      description: `"${t.title}" will be permanently removed.`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (ok) {
+      remove(t.id);
+      toast.success("Task deleted");
+    }
   };
 
   return (
@@ -22,20 +45,17 @@ export function KanbanBoard() {
       {COLUMNS.map((col) => {
         const colTasks = items.filter((t) => t.status === col);
         return (
-          <div key={col} className="flex w-[280px] shrink-0 flex-col rounded-2xl border border-slate-200 bg-slate-50/60 p-3 dark:bg-slate-900/60 dark:border-slate-800">
+          <div key={col} className="flex w-[290px] shrink-0 flex-col rounded-2xl border border-slate-200 bg-slate-50/60 p-3 dark:bg-slate-900/60 dark:border-slate-800">
             <div className="mb-3 flex items-center justify-between px-1">
               <div className="flex items-center gap-2">
                 <StatusBadge status={col} />
                 <span className="font-num text-xs font-semibold text-slate-500">{colTasks.length}</span>
               </div>
-              <button className="rounded-md p-1 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-800">
-                <MoreHorizontal className="h-4 w-4" />
-              </button>
             </div>
 
             <div className="space-y-2">
               {colTasks.map((t, i) => {
-                const assignee = getMemberById(t.assigneeId);
+                const assignee = team.find((m) => m.id === t.assigneeId);
                 const project = projects.find((p) => p.id === t.projectId);
                 const overdue = t.status !== "Done" && daysUntil(t.dueDate) < 0;
                 return (
@@ -45,16 +65,37 @@ export function KanbanBoard() {
                     initial={{ opacity: 0, y: 4 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.2, delay: i * 0.02 }}
-                    className="group cursor-grab rounded-xl border border-slate-200 bg-white p-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)] hover:border-indigo-300 hover:shadow-[0_10px_30px_rgba(15,23,42,0.10)] dark:bg-slate-900 dark:border-slate-800"
+                    className="group rounded-xl border border-slate-200 bg-white p-3 shadow-[0_1px_3px_rgba(15,23,42,0.06)] hover:border-indigo-300 hover:shadow-[0_10px_30px_rgba(15,23,42,0.10)] dark:bg-slate-900 dark:border-slate-800"
                   >
                     <div className="mb-1 flex items-center justify-between">
                       <span className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
                         <Flag className="h-3 w-3" /> {t.priority}
                       </span>
-                      <span className="text-[10px] text-slate-400">{project?.code}</span>
+                      <div className="flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+                        {onEditTask && (
+                          <button
+                            onClick={() => onEditTask(t)}
+                            className="rounded p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700 dark:hover:bg-slate-800"
+                            title="Edit"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDelete(t)}
+                          className="rounded p-1 text-slate-400 hover:bg-rose-50 hover:text-rose-600 dark:hover:bg-rose-500/10"
+                          title="Delete"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      </div>
                     </div>
 
                     <p className="text-sm font-semibold leading-snug text-slate-900 dark:text-slate-100">{t.title}</p>
+
+                    {project && (
+                      <p className="mt-0.5 text-[10px] text-slate-500">{project.code} · {project.name}</p>
+                    )}
 
                     {t.tags.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-1">
@@ -69,7 +110,10 @@ export function KanbanBoard() {
                     <div className="mt-3 flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         {assignee && (
-                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 text-[9px] font-bold text-white">
+                          <div
+                            className="flex h-6 w-6 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 text-[9px] font-bold text-white"
+                            title={assignee.name}
+                          >
                             {initials(assignee.name)}
                           </div>
                         )}

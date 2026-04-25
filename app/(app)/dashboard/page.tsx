@@ -3,7 +3,7 @@
 import { PageHeader } from "@/components/shared/page-header";
 import { StatCard } from "@/components/shared/stat-card";
 import { Button } from "@/components/ui/button";
-import { projects, tasks, tenders, finance } from "@/lib/mock-data";
+import { useProjects, useTasks, useTenders, useFinance } from "@/lib/use-store";
 import { formatCompactINR } from "@/lib/utils";
 import { FolderKanban, CheckCircle2, FileSignature, Wallet, Plus, Download } from "lucide-react";
 import { RevenueChart } from "@/components/dashboard/revenue-chart";
@@ -13,8 +13,14 @@ import { DeadlineAlerts } from "@/components/dashboard/deadline-alerts";
 import { TeamWorkload } from "@/components/dashboard/team-workload";
 import { TenderTracker } from "@/components/dashboard/tender-tracker";
 import { FinanceOverview } from "@/components/dashboard/finance-overview";
+import Link from "next/link";
 
 export default function DashboardPage() {
+  const { items: projects } = useProjects();
+  const { items: tasks } = useTasks();
+  const { items: tenders } = useTenders();
+  const { items: finance } = useFinance();
+
   const activeProjects = projects.filter((p) => p.status === "Active").length;
   const completedTasks = tasks.filter((t) => t.status === "Done").length;
   const openTenders = tenders.filter((t) => t.status === "Submitted" || t.status === "Shortlisted").length;
@@ -29,9 +35,11 @@ export default function DashboardPage() {
         <Button variant="outline" size="sm">
           <Download className="h-4 w-4" /> Export
         </Button>
-        <Button size="sm">
-          <Plus className="h-4 w-4" /> New Project
-        </Button>
+        <Link href="/projects">
+          <Button size="sm">
+            <Plus className="h-4 w-4" /> New Project
+          </Button>
+        </Link>
       </PageHeader>
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

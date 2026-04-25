@@ -1,20 +1,16 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { finance } from "@/lib/mock-data";
+import { useFinance } from "@/lib/use-store";
 import { formatCompactINR } from "@/lib/utils";
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 
 export function FinanceOverview() {
-  const income = finance
-    .filter((f) => f.type === "Income" && f.status === "Paid")
-    .reduce((s, f) => s + f.amount, 0);
-  const expense = finance
-    .filter((f) => f.type === "Expense" && f.status === "Paid")
-    .reduce((s, f) => s + f.amount, 0);
-  const pending = finance
-    .filter((f) => f.status === "Pending" || f.status === "Overdue")
-    .reduce((s, f) => s + f.amount, 0);
+  const { items: finance } = useFinance();
+
+  const income = finance.filter((f) => f.type === "Income" && f.status === "Paid").reduce((s, f) => s + f.amount, 0);
+  const expense = finance.filter((f) => f.type === "Expense" && f.status === "Paid").reduce((s, f) => s + f.amount, 0);
+  const pending = finance.filter((f) => f.status === "Pending" || f.status === "Overdue").reduce((s, f) => s + f.amount, 0);
 
   const cats = finance.reduce<Record<string, { income: number; expense: number }>>((acc, f) => {
     acc[f.category] ||= { income: 0, expense: 0 };

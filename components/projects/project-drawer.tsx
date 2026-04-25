@@ -5,21 +5,28 @@ import { Project } from "@/lib/types";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ProgressBar } from "@/components/shared/progress-bar";
 import { formatCompactINR, formatDate, initials } from "@/lib/utils";
-import { getMemberById, getTasksByProject } from "@/lib/mock-data";
+import { useTeam, useTasks } from "@/lib/use-store";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { MapPin, Calendar, Wallet, ExternalLink } from "lucide-react";
+import { MapPin, Calendar, Wallet, ExternalLink, Pencil, Trash2 } from "lucide-react";
 
 export function ProjectDrawer({
   project,
   onClose,
+  onEdit,
+  onDelete,
 }: {
   project: Project | null;
   onClose: () => void;
+  onEdit?: (p: Project) => void;
+  onDelete?: (p: Project) => void;
 }) {
-  const mgr = project ? getMemberById(project.managerId) : null;
-  const tasks = project ? getTasksByProject(project.id) : [];
-  const team = project ? project.teamIds.map((id) => getMemberById(id)).filter(Boolean) : [];
+  const { items: team } = useTeam();
+  const { items: tasks } = useTasks();
+
+  const mgr = project ? team.find((m) => m.id === project.managerId) : null;
+  const projectTasks = project ? tasks.filter((t) => t.projectId === project.id) : [];
+  const projectTeam = project ? project.teamIds.map((id) => team.find((m) => m.id === id)).filter(Boolean) : [];
 
   return (
     <Drawer open={!!project} onClose={onClose} title={project?.name || ""}>
@@ -31,10 +38,10 @@ export function ProjectDrawer({
             <span className="font-num text-xs text-slate-500">{project.code}</span>
           </div>
 
-          <p className="text-sm text-slate-600 dark:text-slate-400">{project.description}</p>
+          <p className="text-sm text-slate-600 dark:text-slate-400">{project.description || "No description provided."}</p>
 
           <div className="grid grid-cols-2 gap-3">
-            <InfoTile icon={<MapPin className="h-3.5 w-3.5" />} label="Location" value={project.location} />
+            <InfoTile icon={<MapPin className="h-3.5 w-3.5" />} label="Location" value={project.location || "—"} />
             <InfoTile icon={<Calendar className="h-3.5 w-3.5" />} label="Timeline" value={`${formatDate(project.startDate)} → ${formatDate(project.endDate)}`} />
             <InfoTile icon={<Wallet className="h-3.5 w-3.5" />} label="Budget" value={formatCompactINR(project.budget)} />
             <InfoTile icon={<Wallet className="h-3.5 w-3.5" />} label="Spent" value={formatCompactINR(project.spent)} />
@@ -50,26 +57,29 @@ export function ProjectDrawer({
 
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Team ({team.length})
+              Team ({projectTeam.length})
             </p>
             <div className="flex flex-wrap gap-2">
               {mgr && <TeamChip name={mgr.name} role="Manager" />}
-              {team.map(
+              {projectTeam.map(
                 (m) =>
                   m &&
                   m.id !== project.managerId && (
                     <TeamChip key={m.id} name={m.name} role={m.role} />
                   )
               )}
+              {projectTeam.length === 0 && !mgr && (
+                <p className="text-xs text-slate-500">No team assigned.</p>
+              )}
             </div>
           </div>
 
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Tasks ({tasks.length})
+              Tasks ({projectTasks.length})
             </p>
             <div className="space-y-2">
-              {tasks.slice(0, 5).map((t) => (
+              {projectTasks.slice(0, 5).map((t) => (
                 <div key={t.id} className="flex items-center justify-between rounded-lg border border-slate-100 bg-slate-50 px-3 py-2 text-sm dark:border-slate-800 dark:bg-slate-900">
                   <div className="min-w-0">
                     <p className="truncate font-medium text-slate-800 dark:text-slate-200">{t.title}</p>
@@ -78,19 +88,26 @@ export function ProjectDrawer({
                   <StatusBadge status={t.status} />
                 </div>
               ))}
-              {tasks.length === 0 && (
-                <p className="text-sm text-slate-500">No tasks yet.</p>
-              )}
+              {projectTasks.length === 0 && <p className="text-sm text-slate-500">No tasks yet.</p>}
             </div>
           </div>
 
-          <div className="flex gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
-            <Link href={`/projects/${project.id}`} className="flex-1">
+          <div className="flex flex-wrap gap-2 border-t border-slate-200 pt-4 dark:border-slate-800">
+            <Link href={`/projects/${project.id}`} className="flex-1 min-w-[120px]">
               <Button className="w-full">
                 Open full page <ExternalLink className="h-4 w-4" />
               </Button>
             </Link>
-            <Button variant="outline" onClick={onClose}>Close</Button>
+            {onEdit && (
+              <Button variant="outline" onClick={() => onEdit(project)}>
+                <Pencil className="h-4 w-4" /> Edit
+              </Button>
+            )}
+            {onDelete && (
+              <Button variant="danger" onClick={() => onDelete(project)}>
+                <Trash2 className="h-4 w-4" /> Delete
+              </Button>
+            )}
           </div>
         </div>
       )}
@@ -101,9 +118,7 @@ export function ProjectDrawer({
 function InfoTile({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="rounded-xl border border-slate-100 bg-slate-50 p-3 dark:bg-slate-900 dark:border-slate-800">
-      <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">
-        {icon} {label}
-      </p>
+      <p className="flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-slate-500">{icon} {label}</p>
       <p className="mt-1 text-sm font-semibold text-slate-900 dark:text-slate-100">{value}</p>
     </div>
   );

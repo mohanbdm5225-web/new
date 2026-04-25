@@ -1,11 +1,12 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { team } from "@/lib/mock-data";
+import { useTeam } from "@/lib/use-store";
 import { ProgressBar } from "@/components/shared/progress-bar";
 import { initials } from "@/lib/utils";
 
 export function TeamWorkload() {
+  const { items: team } = useTeam();
   return (
     <Card>
       <CardHeader>
@@ -13,6 +14,7 @@ export function TeamWorkload() {
         <CardDescription>Current utilization by member</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
+        {team.length === 0 && <p className="py-4 text-center text-sm text-slate-500">No team members yet.</p>}
         {team.slice(0, 6).map((m) => (
           <div key={m.id} className="flex items-center gap-3">
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-indigo-700 text-xs font-bold text-white">

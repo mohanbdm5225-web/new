@@ -1,71 +1,76 @@
 "use client";
 
+import { useState } from "react";
 import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { Plus, TrendingUp, TrendingDown, Wallet, Clock } from "lucide-react";
-import { finance, getProjectById } from "@/lib/mock-data";
 import { StatCard } from "@/components/shared/stat-card";
 import { formatCompactINR, formatDate } from "@/lib/utils";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { FinanceOverview } from "@/components/dashboard/finance-overview";
+import { Modal } from "@/components/ui/modal";
+import { FinanceForm } from "@/components/forms/finance-form";
+import { useFinance, useProjects } from "@/lib/use-store";
+import { useToast } from "@/components/ui/toast";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { RowActions } from "@/components/shared/row-actions";
+import { FinanceRecord } from "@/lib/types";
 
 export default function FinancePage() {
-  const income = finance
-    .filter((f) => f.type === "Income" && f.status === "Paid")
-    .reduce((s, f) => s + f.amount, 0);
-  const expense = finance
-    .filter((f) => f.type === "Expense" && f.status === "Paid")
-    .reduce((s, f) => s + f.amount, 0);
-  const pending = finance
-    .filter((f) => f.status === "Pending" || f.status === "Overdue")
-    .reduce((s, f) => s + f.amount, 0);
+  const { items: finance, add, update, remove } = useFinance();
+  const { items: projects } = useProjects();
+  const toast = useToast();
+  const { confirm } = useConfirm();
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<FinanceRecord | null>(null);
+
+  const income = finance.filter((f) => f.type === "Income" && f.status === "Paid").reduce((s, f) => s + f.amount, 0);
+  const expense = finance.filter((f) => f.type === "Expense" && f.status === "Paid").reduce((s, f) => s + f.amount, 0);
+  const pending = finance.filter((f) => f.status === "Pending" || f.status === "Overdue").reduce((s, f) => s + f.amount, 0);
   const net = income - expense;
+
+  const openCreate = () => { setEditing(null); setShowForm(true); };
+  const openEdit = (f: FinanceRecord) => { setEditing(f); setShowForm(true); };
+
+  const handleSubmit = (rec: FinanceRecord) => {
+    if (editing) {
+      update(rec.id, rec);
+      toast.success("Entry updated", rec.description);
+    } else {
+      add(rec);
+      toast.success("Entry added", rec.description);
+    }
+    setShowForm(false);
+    setEditing(null);
+  };
+
+  const handleDelete = async (f: FinanceRecord) => {
+    const ok = await confirm({
+      title: "Delete this entry?",
+      description: `${f.type} of ${formatCompactINR(f.amount)} — "${f.description}"`,
+      confirmLabel: "Delete",
+      danger: true,
+    });
+    if (ok) {
+      remove(f.id);
+      toast.success("Entry deleted");
+    }
+  };
 
   return (
     <div>
-      <PageHeader
-        title="Finance"
-        description="Income, expenses, receivables and project-level money flow."
-      >
-        <Button size="sm">
-          <Plus className="h-4 w-4" /> New Entry
-        </Button>
+      <PageHeader title="Finance" description="Income, expenses, receivables and project-level money flow.">
+        <Button size="sm" onClick={openCreate}><Plus className="h-4 w-4" /> New Entry</Button>
       </PageHeader>
 
       <section className="grid grid-cols-2 gap-4 xl:grid-cols-4">
-        <StatCard
-          label="Income"
-          value={formatCompactINR(income)}
-          icon={TrendingUp}
-          tone="emerald"
-          index={0}
-        />
-        <StatCard
-          label="Expense"
-          value={formatCompactINR(expense)}
-          icon={TrendingDown}
-          tone="rose"
-          index={1}
-        />
-        <StatCard
-          label="Pending"
-          value={formatCompactINR(pending)}
-          icon={Clock}
-          tone="amber"
-          index={2}
-        />
-        <StatCard
-          label="Net"
-          value={formatCompactINR(net)}
-          icon={Wallet}
-          tone="indigo"
-          index={3}
-        />
+        <StatCard label="Income" value={formatCompactINR(income)} icon={TrendingUp} tone="emerald" index={0} />
+        <StatCard label="Expense" value={formatCompactINR(expense)} icon={TrendingDown} tone="rose" index={1} />
+        <StatCard label="Pending" value={formatCompactINR(pending)} icon={Clock} tone="amber" index={2} />
+        <StatCard label="Net" value={formatCompactINR(net)} icon={Wallet} tone="indigo" index={3} />
       </section>
 
-      <div className="mt-6">
-        <FinanceOverview />
-      </div>
+      <div className="mt-6"><FinanceOverview /></div>
 
       <div className="mt-6 overflow-hidden rounded-2xl border border-slate-200 bg-white dark:bg-slate-900 dark:border-slate-800">
         <div className="border-b border-slate-200 px-5 py-4 dark:border-slate-800">
@@ -81,46 +86,52 @@ export default function FinancePage() {
                 <th className="px-4 py-3 text-left">Category</th>
                 <th className="px-4 py-3 text-left">Status</th>
                 <th className="px-4 py-3 text-right">Amount</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody>
               {finance.map((f) => {
-                const proj = f.projectId ? getProjectById(f.projectId) : null;
+                const proj = f.projectId ? projects.find((p) => p.id === f.projectId) : null;
                 return (
-                  <tr
-                    key={f.id}
-                    className="border-t border-slate-100 hover:bg-slate-50/80 dark:border-slate-800 dark:hover:bg-slate-800/40"
-                  >
-                    <td className="px-4 py-3 text-slate-600">
-                      {formatDate(f.date)}
-                    </td>
-                    <td className="px-4 py-3 text-slate-900 dark:text-slate-100">
-                      {f.description}
-                    </td>
-                    <td className="px-4 py-3 text-slate-500">
-                      {proj?.name || "—"}
-                    </td>
+                  <tr key={f.id} className="border-t border-slate-100 hover:bg-slate-50/80 dark:border-slate-800 dark:hover:bg-slate-800/40">
+                    <td className="px-4 py-3 text-slate-600">{formatDate(f.date)}</td>
+                    <td className="px-4 py-3 text-slate-900 dark:text-slate-100">{f.description}</td>
+                    <td className="px-4 py-3 text-slate-500">{proj?.name || "—"}</td>
                     <td className="px-4 py-3 text-slate-600">{f.category}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={f.status} />
+                    <td className="px-4 py-3"><StatusBadge status={f.status} /></td>
+                    <td className={`px-4 py-3 text-right font-num font-semibold ${f.type === "Income" ? "text-emerald-600" : "text-rose-600"}`}>
+                      {f.type === "Income" ? "+" : "−"} {formatCompactINR(f.amount)}
                     </td>
-                    <td
-                      className={`px-4 py-3 text-right font-num font-semibold ${
-                        f.type === "Income"
-                          ? "text-emerald-600"
-                          : "text-rose-600"
-                      }`}
-                    >
-                      {f.type === "Income" ? "+" : "−"}{" "}
-                      {formatCompactINR(f.amount)}
+                    <td className="px-4 py-3 text-right">
+                      <RowActions onEdit={() => openEdit(f)} onDelete={() => handleDelete(f)} />
                     </td>
                   </tr>
                 );
               })}
+              {finance.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-4 py-12 text-center text-sm text-slate-500">
+                    No transactions yet.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </div>
+
+      <Modal
+        open={showForm}
+        onClose={() => { setShowForm(false); setEditing(null); }}
+        title={editing ? "Edit Entry" : "New Finance Entry"}
+        size="md"
+      >
+        <FinanceForm
+          initial={editing}
+          onSubmit={handleSubmit}
+          onCancel={() => { setShowForm(false); setEditing(null); }}
+        />
+      </Modal>
     </div>
   );
 }

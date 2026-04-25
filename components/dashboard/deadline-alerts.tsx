@@ -1,11 +1,14 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { projects, tasks } from "@/lib/mock-data";
+import { useProjects, useTasks } from "@/lib/use-store";
 import { daysUntil, formatDate } from "@/lib/utils";
 import { AlertTriangle, Clock } from "lucide-react";
 
 export function DeadlineAlerts() {
+  const { items: projects } = useProjects();
+  const { items: tasks } = useTasks();
+
   const upcoming = [
     ...tasks
       .filter((t) => t.status !== "Done")
@@ -26,6 +29,9 @@ export function DeadlineAlerts() {
         <CardDescription>Most urgent items</CardDescription>
       </CardHeader>
       <CardContent className="space-y-2">
+        {upcoming.length === 0 && (
+          <p className="py-4 text-center text-sm text-slate-500">All caught up!</p>
+        )}
         {upcoming.map((u) => {
           const overdue = u.days < 0;
           const soon = u.days >= 0 && u.days <= 7;
@@ -42,11 +48,7 @@ export function DeadlineAlerts() {
               </div>
               <span
                 className={`whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${
-                  overdue
-                    ? "bg-rose-50 text-rose-700"
-                    : soon
-                    ? "bg-amber-50 text-amber-700"
-                    : "bg-emerald-50 text-emerald-700"
+                  overdue ? "bg-rose-50 text-rose-700" : soon ? "bg-amber-50 text-amber-700" : "bg-emerald-50 text-emerald-700"
                 }`}
               >
                 {overdue ? `${Math.abs(u.days)}d overdue` : `${u.days}d left`}

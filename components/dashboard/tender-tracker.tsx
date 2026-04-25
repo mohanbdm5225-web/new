@@ -1,13 +1,14 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { tenders } from "@/lib/mock-data";
+import { useTenders } from "@/lib/use-store";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatCompactINR, formatDate } from "@/lib/utils";
 import { FileSignature } from "lucide-react";
 import Link from "next/link";
 
 export function TenderTracker() {
+  const { items: tenders } = useTenders();
   const activeTenders = tenders
     .filter((t) => t.status !== "Cancelled" && t.status !== "Lost")
     .slice(0, 4);
@@ -28,6 +29,9 @@ export function TenderTracker() {
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
+        {activeTenders.length === 0 && (
+          <p className="py-4 text-center text-sm text-slate-500">No active tenders.</p>
+        )}
         {activeTenders.map((t) => (
           <div key={t.id} className="rounded-xl border border-slate-100 p-3 dark:border-slate-800">
             <div className="flex items-start justify-between gap-3">

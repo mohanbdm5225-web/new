@@ -4,8 +4,27 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { resetAllData } from "@/lib/use-store";
+import { useConfirm } from "@/components/ui/confirm-dialog";
+import { useToast } from "@/components/ui/toast";
 
 export default function SettingsPage() {
+  const { confirm } = useConfirm();
+  const toast = useToast();
+
+  const handleReset = async () => {
+    const ok = await confirm({
+      title: "Reset all data?",
+      description: "All your changes (projects, tasks, tenders, etc.) will be wiped and replaced with the original sample data. This cannot be undone.",
+      confirmLabel: "Reset everything",
+      danger: true,
+    });
+    if (ok) {
+      toast.info("Resetting data…");
+      setTimeout(() => resetAllData(), 500);
+    }
+  };
+
   return (
     <div>
       <PageHeader title="Settings" description="Workspace, organisation and personal preferences." />
@@ -53,12 +72,17 @@ export default function SettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Danger zone</CardTitle>
-            <CardDescription>Irreversible actions</CardDescription>
+            <CardTitle>Data management</CardTitle>
+            <CardDescription>Backup, reset, danger zone</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button variant="outline" size="sm">Export all data</Button>
-            <Button variant="danger" size="sm">Archive workspace</Button>
+            <p className="text-xs text-slate-500">
+              Data is stored in your browser&apos;s local storage. It will persist across sessions but only on this device.
+            </p>
+            <Button variant="outline" size="sm">Export all data (JSON)</Button>
+            <Button variant="danger" size="sm" onClick={handleReset}>
+              Reset to sample data
+            </Button>
           </CardContent>
         </Card>
       </div>
