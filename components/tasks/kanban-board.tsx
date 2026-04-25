@@ -1,6 +1,6 @@
 "use client";
 
-import { Task, TaskStatus } from "@/lib/types";
+import { Task, TaskStatus, TeamMember } from "@/lib/types";
 import { useTasks, useTeam, useProjects } from "@/lib/use-store";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDate, initials, daysUntil } from "@/lib/utils";
@@ -55,7 +55,6 @@ export function KanbanBoard({
     const activeTask = items.find((t) => t.id === active.id);
     if (!activeTask) return;
 
-    // Dropped on a column header (over.id is a column name)
     if (COLUMNS.includes(over.id as TaskStatus)) {
       const newStatus = over.id as TaskStatus;
       if (activeTask.status !== newStatus) {
@@ -65,7 +64,6 @@ export function KanbanBoard({
       return;
     }
 
-    // Dropped on another task — match its column
     const overTask = items.find((t) => t.id === over.id);
     if (overTask && activeTask.status !== overTask.status) {
       update(activeTask.id, { status: overTask.status });
@@ -140,7 +138,6 @@ export function KanbanBoard({
   );
 }
 
-// ---------- Column ----------
 function Column({
   status,
   tasks,
@@ -170,7 +167,6 @@ function Column({
   );
 }
 
-// ---------- Sortable wrapper ----------
 function SortableTaskCard({
   task,
   assignee,
@@ -179,7 +175,7 @@ function SortableTaskCard({
   onDelete,
 }: {
   task: Task;
-  assignee: ReturnType<typeof useTeam> extends { items: infer M } ? (M extends Array<infer X> ? X : never) : never;
+  assignee?: TeamMember;
   projectCode?: string;
   onEdit?: (t: Task) => void;
   onDelete: (t: Task) => void;
@@ -206,7 +202,6 @@ function SortableTaskCard({
   );
 }
 
-// ---------- Visual card (used by both sortable + drag overlay) ----------
 function TaskCardView({
   task,
   assignee,
@@ -217,7 +212,7 @@ function TaskCardView({
   isDragging,
 }: {
   task: Task;
-  assignee?: { name: string };
+  assignee?: TeamMember;
   projectCode?: string;
   onEdit?: (t: Task) => void;
   onDelete?: (t: Task) => void;
