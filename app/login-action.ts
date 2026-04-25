@@ -9,21 +9,21 @@ export async function loginAction(formData: FormData) {
 
   const validUsername = process.env.AUTH_USERNAME || "admin";
   const validPassword = process.env.AUTH_PASSWORD || "Admin@123";
-  const authSecret =
-    process.env.AUTH_SECRET || "my-super-secret-login-token";
+
+  console.log("Entered:", username, password);
+  console.log("Expected:", validUsername, validPassword);
 
   if (username !== validUsername || password !== validPassword) {
+    console.log("LOGIN FAILED ❌");
     redirect("/login?error=1");
   }
 
-  const cookieStore = await cookies();
+  console.log("LOGIN SUCCESS ✅");
 
-  cookieStore.set("geo_pm_auth", authSecret, {
+  const cookieStore = await cookies();
+  cookieStore.set("geo_pm_auth", "ok", {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "lax",
     path: "/",
-    maxAge: 60 * 60 * 24 * 7,
   });
 
   redirect("/dashboard");
