@@ -19,13 +19,14 @@ import {
   ChevronsRight,
   Compass,
   Map,
+  Globe,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "Projects", icon: FolderKanban },
-  { href: "/map", label: "Map View", icon: Map },
+  { href: "/gis", label: "GIS", icon: Globe },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
   { href: "/dsr", label: "DSR", icon: ClipboardList },
   { href: "/calendar", label: "Calendar", icon: CalendarDays },
