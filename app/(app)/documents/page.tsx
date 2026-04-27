@@ -1,175 +1,238 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useState } from "react";
+import {
+  UploadCloud,
+  FileText,
+  Search,
+  Download,
+  Eye,
+  Trash2,
+  FolderOpen,
+} from "lucide-react";
 import { PageHeader } from "@/components/shared/page-header";
+import { StatusBadge } from "@/components/shared/status-badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { UploadCloud, FileText, Search, File, Image as ImageIcon, Map, FileSpreadsheet, FileSignature, Plus } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { formatBytes, timeAgo } from "@/lib/utils";
-import { Modal } from "@/components/ui/modal";
-import { DocumentForm } from "@/components/forms/document-form";
-import { useDocuments, useProjects, useTeam } from "@/lib/use-store";
-import { useToast } from "@/components/ui/toast";
-import { useConfirm } from "@/components/ui/confirm-dialog";
-import { RowActions } from "@/components/shared/row-actions";
-import { DocumentItem } from "@/lib/types";
-import { uid } from "@/lib/id";
-
-const iconFor = (type: string) => {
-  const t = type.toLowerCase();
-  if (["pdf", "docx", "doc"].includes(t)) return FileText;
-  if (["dwg", "dxf"].includes(t)) return FileSignature;
-  if (["png", "jpg", "jpeg", "tif"].includes(t)) return ImageIcon;
-  if (["shp", "kml"].includes(t)) return Map;
-  if (["csv", "xlsx"].includes(t)) return FileSpreadsheet;
-  return File;
-};
+import { documents, projects, team } from "@/lib/mock-data";
+import { formatBytes, formatDate, timeAgo } from "@/lib/utils";
 
 export default function DocumentsPage() {
-  const { items: documents, add, update, remove } = useDocuments();
-  const { items: projects } = useProjects();
-  const { items: team } = useTeam();
-  const toast = useToast();
-  const { confirm } = useConfirm();
+  const [search, setSearch] = useState("");
+  const [category, setCategory] = useState("All");
 
-  const [q, setQ] = useState("");
-  const [drag, setDrag] = useState(false);
-  const [showForm, setShowForm] = useState(false);
-  const [editing, setEditing] = useState<DocumentItem | null>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const categories = [
+    "All",
+    ...Array.from(new Set(documents.map((document) => document.category))),
+  ];
 
-  const filtered = documents.filter((d) => !q || d.name.toLowerCase().includes(q.toLowerCase()));
+  const filteredDocuments = useMemo(() => {
+    return documents.filter((document) => {
+      const project = projects.find((item) => item.id === document.projectId);
+      const uploadedBy = team.find((item) => item.id === document.uploadedBy);
 
-  const handleFiles = (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    const firstUser = team[0];
-    Array.from(files).forEach((f) => {
-      const ext = f.name.includes(".") ? f.name.split(".").pop() || "file" : "file";
-      const newDoc: DocumentItem = {
-        id: uid("d_"),
-        name: f.name,
-        category: "Other",
-        projectId: null,
-        size: f.size,
-        uploadedBy: firstUser?.id || "",
-        uploadedAt: new Date().toISOString(),
-        fileType: ext,
-      };
-      add(newDoc);
+      const matchesSearch = `${document.name} ${document.category} ${
+        project?.name ?? ""
+      } ${uploadedBy?.name ?? ""}`
+        .toLowerCase()
+        .includes(search.toLowerCase());
+
+      const matchesCategory =
+        category === "All" || document.category === category;
+
+      return matchesSearch && matchesCategory;
     });
-    toast.success(`${files.length} file(s) added`, "Tip: actual file storage requires Phase 4 backend.");
-  };
+  }, [search, category]);
 
-  const openCreate = () => { setEditing(null); setShowForm(true); };
-  const openEdit = (d: DocumentItem) => { setEditing(d); setShowForm(true); };
+  const totalStorage = documents.reduce(
+    (sum, document) => sum + document.size,
+    0
+  );
 
-  const handleSubmit = (doc: DocumentItem) => {
-    if (editing) {
-      update(doc.id, doc);
-      toast.success("Document updated", doc.name);
-    } else {
-      add(doc);
-      toast.success("Document added", doc.name);
-    }
-    setShowForm(false);
-    setEditing(null);
-  };
+  function getProjectName(projectId: string | null) {
+    if (!projectId) return "General";
+    return projects.find((project) => project.id === projectId)?.name ?? "General";
+  }
 
-  const handleDelete = async (d: DocumentItem) => {
-    const ok = await confirm({
-      title: "Delete this document?",
-      description: `"${d.name}" will be permanently removed from the list.`,
-      confirmLabel: "Delete",
-      danger: true,
-    });
-    if (ok) {
-      remove(d.id);
-      toast.success("Document deleted");
-    }
-  };
+  function getUploaderName(userId: string) {
+    return team.find((member) => member.id === userId)?.name ?? "Unknown";
+  }
 
   return (
     <div>
-      <PageHeader title="Documents" description="Reports, drawings, contracts, data and deliverables — all in one place.">
-        <Button variant="outline" size="sm" onClick={openCreate}><Plus className="h-4 w-4" /> Manual Entry</Button>
-        <Button size="sm" onClick={() => inputRef.current?.click()}>
-          <UploadCloud className="h-4 w-4" /> Upload
+      <PageHeader
+        title="Documents"
+        description="Manage project reports, maps, drawings, invoices, contracts, GIS files, drone outputs and tender documents."
+      >
+        <Button variant="outline">
+          <FolderOpen className="h-4 w-4" />
+          New Folder
+        </Button>
+
+        <Button>
+          <UploadCloud className="h-4 w-4" />
+          Upload File
         </Button>
       </PageHeader>
 
-      <div
-        onDragOver={(e) => { e.preventDefault(); setDrag(true); }}
-        onDragLeave={() => setDrag(false)}
-        onDrop={(e) => { e.preventDefault(); setDrag(false); handleFiles(e.dataTransfer.files); }}
-        className={`flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-8 text-center transition-colors ${
-          drag ? "border-indigo-500 bg-indigo-50/60" : "border-slate-300 bg-slate-50/60 dark:border-slate-700 dark:bg-slate-900/60"
-        }`}
-      >
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-white shadow-[0_1px_3px_rgba(15,23,42,0.06)] dark:bg-slate-800">
-          <UploadCloud className="h-5 w-5 text-indigo-600" />
+      <div className="mb-6 grid gap-4 md:grid-cols-3">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft">
+          <p className="text-sm text-slate-500">Total Documents</p>
+          <p className="font-num mt-2 text-3xl font-bold text-slate-900">
+            {documents.length}
+          </p>
         </div>
-        <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">Drag & drop files here</p>
-        <p className="text-xs text-slate-500">
-          or{" "}
-          <button className="font-semibold text-indigo-600 hover:text-indigo-700" onClick={() => inputRef.current?.click()}>
-            browse from your computer
-          </button>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft">
+          <p className="text-sm text-slate-500">Storage Used</p>
+          <p className="font-num mt-2 text-3xl font-bold text-slate-900">
+            {formatBytes(totalStorage)}
+          </p>
+        </div>
+
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-soft">
+          <p className="text-sm text-slate-500">File Categories</p>
+          <p className="font-num mt-2 text-3xl font-bold text-slate-900">
+            {categories.length - 1}
+          </p>
+        </div>
+      </div>
+
+      <div className="mb-6 rounded-2xl border border-dashed border-indigo-300 bg-indigo-50/40 p-8 text-center">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-white shadow-soft">
+          <UploadCloud className="h-7 w-7 text-indigo-600" />
+        </div>
+
+        <h3 className="mt-4 text-base font-semibold text-slate-900">
+          Upload project documents
+        </h3>
+
+        <p className="mx-auto mt-1 max-w-xl text-sm text-slate-500">
+          Drag and drop PDF, DWG, SHP, KML, LAS, TIFF, DOCX, XLSX and project
+          files here. This is UI mock only. Backend storage can be added later.
         </p>
-        <input ref={inputRef} type="file" multiple className="hidden" onChange={(e) => handleFiles(e.target.files)} />
+
+        <div className="mt-4 flex justify-center gap-2">
+          <Button>
+            <UploadCloud className="h-4 w-4" />
+            Choose Files
+          </Button>
+
+          <Button variant="outline">Upload Folder</Button>
+        </div>
       </div>
 
-      <div className="relative mt-6">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search documents…" className="pl-9" />
+      <div className="mb-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-soft">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="relative w-full lg:w-96">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-slate-400" />
+            <Input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search documents, projects, uploaders..."
+              className="pl-9"
+            />
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {categories.map((item) => (
+              <button
+                key={item}
+                onClick={() => setCategory(item)}
+                className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                  category === item
+                    ? "bg-indigo-600 text-white"
+                    : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                }`}
+              >
+                {item}
+              </button>
+            ))}
+          </div>
+        </div>
       </div>
 
-      <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-        {filtered.map((d) => {
-          const Icon = iconFor(d.fileType);
-          const proj = d.projectId ? projects.find((p) => p.id === d.projectId) : null;
-          const user = team.find((m) => m.id === d.uploadedBy);
-          return (
-            <Card key={d.id} className="p-4 transition-shadow hover:shadow-[0_10px_30px_rgba(15,23,42,0.10)]">
-              <CardContent className="flex items-start gap-3 p-0">
-                <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
-                  <Icon className="h-5 w-5" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-start justify-between gap-2">
-                    <p className="truncate text-sm font-semibold text-slate-900 dark:text-slate-100">{d.name}</p>
-                    <RowActions onEdit={() => openEdit(d)} onDelete={() => handleDelete(d)} />
-                  </div>
-                  <p className="truncate text-xs text-slate-500">{proj?.name || "No project"} · {d.category}</p>
-                  <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
-                    <span>{user?.name || "—"} · {timeAgo(d.uploadedAt)}</span>
-                    <span className="font-num font-semibold text-slate-700">{formatBytes(d.size)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+      <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft">
+        <div className="grid grid-cols-12 border-b border-slate-200 bg-slate-50 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          <div className="col-span-5">Document</div>
+          <div className="col-span-2">Category</div>
+          <div className="col-span-2">Project</div>
+          <div className="col-span-1">Size</div>
+          <div className="col-span-1">Uploaded</div>
+          <div className="col-span-1 text-right">Action</div>
+        </div>
 
-        {filtered.length === 0 && (
-          <div className="col-span-full rounded-2xl border border-dashed border-slate-300 bg-slate-50/50 p-10 text-center text-sm text-slate-500">
-            No documents yet.
+        {filteredDocuments.map((document) => (
+          <div
+            key={document.id}
+            className="grid grid-cols-12 items-center border-b border-slate-100 px-4 py-4 transition hover:bg-slate-50"
+          >
+            <div className="col-span-5 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600">
+                <FileText className="h-5 w-5" />
+              </div>
+
+              <div>
+                <p className="line-clamp-1 text-sm font-semibold text-slate-900">
+                  {document.name}
+                </p>
+                <p className="text-xs text-slate-500">
+                  Uploaded by {getUploaderName(document.uploadedBy)} •{" "}
+                  {timeAgo(document.uploadedAt)}
+                </p>
+              </div>
+            </div>
+
+            <div className="col-span-2">
+              <StatusBadge status={document.category} />
+            </div>
+
+            <div className="col-span-2">
+              <p className="line-clamp-1 text-sm text-slate-600">
+                {getProjectName(document.projectId)}
+              </p>
+            </div>
+
+            <div className="col-span-1">
+              <p className="font-num text-sm text-slate-600">
+                {formatBytes(document.size)}
+              </p>
+            </div>
+
+            <div className="col-span-1">
+              <p className="text-xs text-slate-500">
+                {formatDate(document.uploadedAt)}
+              </p>
+            </div>
+
+            <div className="col-span-1 flex justify-end gap-1">
+              <button className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900">
+                <Eye className="h-4 w-4" />
+              </button>
+
+              <button className="rounded-lg p-2 text-slate-500 hover:bg-slate-100 hover:text-slate-900">
+                <Download className="h-4 w-4" />
+              </button>
+
+              <button className="rounded-lg p-2 text-slate-500 hover:bg-rose-50 hover:text-rose-600">
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        ))}
+
+        {filteredDocuments.length === 0 && (
+          <div className="p-10 text-center">
+            <FileText className="mx-auto h-10 w-10 text-slate-300" />
+            <h3 className="mt-3 text-sm font-semibold text-slate-900">
+              No documents found
+            </h3>
+            <p className="mt-1 text-sm text-slate-500">
+              Try changing your search or category filter.
+            </p>
           </div>
         )}
       </div>
-
-      <Modal
-        open={showForm}
-        onClose={() => { setShowForm(false); setEditing(null); }}
-        title={editing ? "Edit Document" : "Manual Document Entry"}
-        size="md"
-      >
-        <DocumentForm
-          initial={editing}
-          onSubmit={handleSubmit}
-          onCancel={() => { setShowForm(false); setEditing(null); }}
-        />
-      </Modal>
     </div>
   );
 }

@@ -1,90 +1,93 @@
 "use client";
 
 import {
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+} from "recharts";
+import {
   Card,
   CardContent,
   CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { useProjects } from "@/lib/use-store";
-import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from "recharts";
+import { projects } from "@/lib/mock-data";
 
-const COLORS = ["#6366f1", "#10b981", "#f59e0b", "#94a3b8", "#f43f5e"];
+const COLORS: Record<string, string> = {
+  Active: "#4f46e5",
+  Completed: "#10b981",
+  Planning: "#f59e0b",
+  "On Hold": "#64748b",
+  Cancelled: "#ef4444",
+};
 
 export function StatusDistribution() {
-  const { items: projects } = useProjects();
-
-  const counts = projects.reduce<Record<string, number>>((acc, p) => {
-    acc[p.status] = (acc[p.status] || 0) + 1;
-    return acc;
-  }, {});
-
-  const data = Object.entries(counts).map(([name, value]) => ({
-    name,
-    value,
-  }));
+  const data = Object.entries(
+    projects.reduce<Record<string, number>>((acc, project) => {
+      acc[project.status] = (acc[project.status] || 0) + 1;
+      return acc;
+    }, {})
+  ).map(([name, value]) => ({ name, value }));
 
   return (
-    <Card className="min-w-0 overflow-hidden">
+    <Card className="min-w-0">
       <CardHeader>
         <CardTitle>Project Status</CardTitle>
-        <CardDescription>Distribution across portfolio</CardDescription>
+        <CardDescription>Distribution by current status</CardDescription>
       </CardHeader>
 
-      <CardContent className="min-w-0">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-          <div className="h-[220px] w-full min-w-0 overflow-hidden sm:w-[220px] sm:shrink-0">
-            <ResponsiveContainer width="100%" height="100%" minWidth={0}>
-              <PieChart>
-                <Pie
-                  data={data}
-                  dataKey="value"
-                  innerRadius={55}
-                  outerRadius={82}
-                  paddingAngle={2}
-                  stroke="none"
-                >
-                  {data.map((_, i) => (
-                    <Cell key={i} fill={COLORS[i % COLORS.length]} />
-                  ))}
-                </Pie>
-
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 10,
-                    border: "1px solid #e2e8f0",
-                    fontSize: 12,
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-
-          <div className="min-w-0 flex-1 space-y-2.5">
-            {data.length === 0 && (
-              <p className="text-sm text-slate-500">No projects yet.</p>
-            )}
-
-            {data.map((d, i) => (
-              <div
-                key={d.name}
-                className="flex items-center justify-between gap-2 text-sm"
+      <CardContent>
+        <div className="h-[320px] w-full min-w-0">
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={data}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={72}
+                outerRadius={105}
+                paddingAngle={4}
               >
-                <span className="flex min-w-0 items-center gap-2 text-slate-600">
-                  <span
-                    className="h-2.5 w-2.5 shrink-0 rounded-sm"
-                    style={{ background: COLORS[i % COLORS.length] }}
+                {data.map((entry) => (
+                  <Cell
+                    key={entry.name}
+                    fill={COLORS[entry.name] || "#94a3b8"}
                   />
-                  <span className="truncate">{d.name}</span>
-                </span>
+                ))}
+              </Pie>
 
-                <span className="font-num shrink-0 font-semibold text-slate-900">
-                  {d.value}
-                </span>
+              <Tooltip
+                contentStyle={{
+                  borderRadius: 12,
+                  border: "1px solid #e2e8f0",
+                }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          {data.map((item) => (
+            <div
+              key={item.name}
+              className="flex items-center justify-between rounded-xl bg-slate-50 px-3 py-2"
+            >
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-2.5 w-2.5 rounded-full"
+                  style={{ backgroundColor: COLORS[item.name] || "#94a3b8" }}
+                />
+                <span className="text-sm text-slate-600">{item.name}</span>
               </div>
-            ))}
-          </div>
+
+              <span className="font-num text-sm font-bold text-slate-900">
+                {item.value}
+              </span>
+            </div>
+          ))}
         </div>
       </CardContent>
     </Card>

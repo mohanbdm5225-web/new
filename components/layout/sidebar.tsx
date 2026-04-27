@@ -6,10 +6,13 @@ import {
   LayoutDashboard,
   FolderKanban,
   CheckSquare,
+  ClipboardList,
+  CalendarDays,
   Users,
   Wrench,
   FileSignature,
   Wallet,
+  ReceiptText,
   FileText,
   Settings,
   ChevronsLeft,
@@ -22,12 +25,15 @@ import { cn } from "@/lib/utils";
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/projects", label: "Projects", icon: FolderKanban },
-  { href: "/map", label: "Map", icon: Map },
+  { href: "/map", label: "Map View", icon: Map },
   { href: "/tasks", label: "Tasks", icon: CheckSquare },
+  { href: "/dsr", label: "DSR", icon: ClipboardList },
+  { href: "/calendar", label: "Calendar", icon: CalendarDays },
   { href: "/resources", label: "Team", icon: Users },
   { href: "/equipment", label: "Equipment", icon: Wrench },
   { href: "/tenders", label: "Tenders", icon: FileSignature },
   { href: "/finance", label: "Finance", icon: Wallet },
+  { href: "/invoices", label: "Invoices", icon: ReceiptText },
   { href: "/documents", label: "Documents", icon: FileText },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
@@ -44,7 +50,7 @@ export function Sidebar({
   return (
     <aside
       className={cn(
-        "sticky top-0 hidden h-screen shrink-0 border-r border-slate-200 bg-white transition-[width] duration-200 lg:flex lg:flex-col dark:bg-slate-950 dark:border-slate-800",
+        "sticky top-0 hidden h-screen shrink-0 border-r border-slate-200 bg-white transition-[width] duration-200 lg:flex lg:flex-col dark:border-slate-800 dark:bg-slate-950",
         collapsed ? "w-[76px]" : "w-64"
       )}
     >
@@ -57,6 +63,7 @@ export function Sidebar({
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 to-indigo-700 text-white shadow-sm">
           <Compass className="h-5 w-5" />
         </div>
+
         {!collapsed && (
           <div>
             <p className="text-sm font-bold text-slate-900 dark:text-slate-100">
@@ -71,11 +78,14 @@ export function Sidebar({
         {nav.map((item) => {
           const active =
             pathname === item.href || pathname.startsWith(item.href + "/");
+
           const Icon = item.icon;
+
           return (
             <Link
               key={item.href}
               href={item.href}
+              title={collapsed ? item.label : undefined}
               className={cn(
                 "group flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
                 active
@@ -83,15 +93,15 @@ export function Sidebar({
                   : "text-slate-600 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-900",
                 collapsed && "justify-center px-2"
               )}
-              title={collapsed ? item.label : undefined}
             >
               <Icon
                 className={cn(
-                  "h-4 w-4 shrink-0",
+                  "h-4.5 w-4.5 shrink-0",
                   active ? "text-indigo-600 dark:text-indigo-300" : ""
                 )}
                 strokeWidth={2.1}
               />
+
               {!collapsed && <span>{item.label}</span>}
             </Link>
           );
