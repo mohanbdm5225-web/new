@@ -22,7 +22,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Project,
-  ProjectPriority,
   ProjectStatus,
   ProjectType,
 } from "@/lib/types";
@@ -67,8 +66,6 @@ const projectTypes: ProjectType[] = [
   "Tender Work",
 ];
 
-const priorities: ProjectPriority[] = ["Low", "Medium", "High", "Critical"];
-
 export default function ProjectsPage() {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -83,10 +80,11 @@ export default function ProjectsPage() {
   }
 
   useEffect(() => {
-    loadProjects();
+    const hydrationTimer = window.setTimeout(loadProjects, 0);
     window.addEventListener("projects-updated", loadProjects);
 
     return () => {
+      window.clearTimeout(hydrationTimer);
       window.removeEventListener("projects-updated", loadProjects);
     };
   }, []);
@@ -258,33 +256,6 @@ export default function ProjectsPage() {
     }
   }
 
-  function handleDownloadNhaiTemplate() {
-    const templateRows = [
-      {
-        "Sr No": 1,
-        UPC: "N/05015/02004/MH",
-        "Project Name":
-          "Balance work of Khed Ghat realignment & Narayangaon bypass on Khed Sinnar section of NH-60",
-        "Work Order No": "37/Apr-2026/29607",
-        "Scheduled Date of Inspection": "2026-04-20",
-        "Scheduled Date of Closure": "2026-04-30",
-        PIU: "Pune",
-        "PD Name": "Sh. S.S. Kadam",
-        "PD Mobile No.": "8130006201",
-        RO: "RO-Mumbai",
-        TSP: "TSP 1",
-        "AE/IE NAME": "SA Infrastructure Consultant Pvt. Ltd.",
-        "AE/IE Contact": "9011770279",
-      },
-    ];
-
-    const worksheet = XLSX.utils.json_to_sheet(templateRows);
-    const workbook = XLSX.utils.book_new();
-
-    XLSX.utils.book_append_sheet(workbook, worksheet, "NHAI Projects");
-    XLSX.writeFile(workbook, "nhai-project-import-template.xlsx");
-  }
-
   function handleExportCsv() {
     const headers = [
       "Project Code",
@@ -357,20 +328,22 @@ export default function ProjectsPage() {
           className="hidden"
         />
 
-        <Button variant="outline" onClick={handleDownloadNhaiTemplate}>
-          <FileSpreadsheet className="h-4 w-4" />
-          NHAI Template
-        </Button>
-
         <Button variant="outline" onClick={() => fileInputRef.current?.click()}>
           <Upload className="h-4 w-4" />
-          Import NHAI Excel
+          Import
         </Button>
 
         <Button variant="outline" onClick={handleExportCsv}>
           <Download className="h-4 w-4" />
           Export
         </Button>
+
+        <Link href="/projects/nhai">
+          <Button>
+            <FileSpreadsheet className="h-4 w-4" />
+            NHAI Projects
+          </Button>
+        </Link>
 
         <Link href="/projects/new">
           <Button>
@@ -576,7 +549,7 @@ export default function ProjectsPage() {
               No projects found
             </h3>
             <p className="mt-1 text-sm text-slate-500">
-              Import NHAI Excel or create a new project.
+              Import or create a new project.
             </p>
           </div>
         )}

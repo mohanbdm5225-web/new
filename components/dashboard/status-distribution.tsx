@@ -40,8 +40,8 @@ export function StatusDistribution() {
       </CardHeader>
 
       <CardContent>
-        <div className="h-[320px] w-full min-w-0">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="w-full min-w-0" style={{ width: "100%", height: 320, minWidth: 0, minHeight: 0 }}>
+          <ResponsiveContainer width="100%" height={320}>
             <PieChart>
               <Pie
                 data={data}
