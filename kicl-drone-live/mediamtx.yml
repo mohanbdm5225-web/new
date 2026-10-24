@@ -7,8 +7,14 @@ hlsVariant: mpegts
 hlsAlwaysRemux: true
 webrtc: false
 srt: false
-api: false
+api: true
+apiAddress: :9997
 metrics: false
+record: true
+recordPath: /recordings/%path/%Y-%m-%d_%H-%M-%S-%f
+recordFormat: fmp4
+recordSegmentDuration: 1h
+recordDeleteAfter: 168h
 authMethod: internal
 authInternalUsers:
   - user: publisher
@@ -16,9 +22,10 @@ authInternalUsers:
     permissions:
       - action: publish
   - user: any
-    ips: ['172.16.0.0/12','127.0.0.1/32']
+    ips: ['172.16.0.0/12', '127.0.0.1/32']
     permissions:
       - action: read
+      - action: api
 paths:
   all_others:
     source: publisher
