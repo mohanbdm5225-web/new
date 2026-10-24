@@ -1,44 +1,68 @@
-import os, re, secrets
-from urllib.parse import quote
+import os
+import re
+import secrets
 import httpx
-from fastapi import FastAPI, Depends, HTTPException, Response
+from urllib.parse import quote
+from fastapi import FastAPI, Depends, HTTPException, Request, Response
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
+from fastapi.responses import StreamingResponse
 
-app = FastAPI(title="KICL Drone Live Streaming API")
+app = FastAPI(title="KICL Drone Live Streaming API", docs_url=None, redoc_url=None)
 security = HTTPBasic()
-STREAMS = [s.strip() for s in os.getenv("STREAM_NAMES", "drone1").split(",") if re.fullmatch(r"[A-Za-z0-9_-]+", s.strip())]
 ORIGIN = os.getenv("MEDIAMTX_HLS", "http://mediamtx:8888").rstrip("/")
+MTX_API = os.getenv("MEDIAMTX_API", "http://mediamtx:9997").rstrip("/")
+STREAMS = [s.strip() for s in os.getenv("STREAM_NAMES", "drone1").split(",") if re.fullmatch(r"[A-Za-z0-9_-]+", s.strip())]
+SAFE_ASSET = re.compile(r"[a-zA-Z0-9_./-]+")
 
 def verify(credentials: HTTPBasicCredentials = Depends(security)):
-    user = os.getenv("VIEWER_USER", "")
+    username = os.getenv("VIEWER_USER", "")
     password = os.getenv("VIEWER_PASSWORD", "")
-    if not user or not password or not (
-        secrets.compare_digest(credentials.username.encode(), user.encode()) and
-        secrets.compare_digest(credentials.password.encode(), password.encode())
-    ):
-        raise HTTPException(status_code=401, detail="Invalid credentials", headers={"WWW-Authenticate": "Basic"})
-    return credentials.username
+    if not username or not password or username.startswith("REPLACE_ME") or password.startswith("REPLACE_ME"):
+        raise HTTPException(status_code=503, detail="Viewer credentials not configured")
+    if not (secrets.compare_digest(credentials.username.encode(), username.encode()) and secrets.compare_digest(credentials.password.encode(), password.encode())):
+        raise HTTPException(status_code=401, detail="Invalid credentials", headers={"WWW-Authenticate": "Basic realm=KICL"})
+    return username
 
 @app.get("/api/health")
 def health():
     return {"status": "ok", "service": "kicl-live"}
 
+async def fetch_status():
+    try:
+        async with httpx.AsyncClient(timeout=5) as client:
+            r = await client.get(f"{MTX_API}/v3/paths/list")
+            r.raise_for_status()
+            data = r.json()
+            return {item.get("name"): item for item in data.get("items", [])}
+    except (httpx.RequestError, httpx.HTTPStatusError, ValueError):
+        return {}
+
 @app.get("/api/streams")
-def streams(_: str = Depends(verify)):
-    return {"streams": STREAMS}
+async def streams(_: str = Depends(verify)):
+    online = await fetch_status()
+    return {"streams": [{"name": name, "online": bool(online.get(name, {}).get("ready")), "readers": online.get(name, {}).get("readers", 0)} for name in STREAMS]}
 
 @app.get("/api/hls/{stream}/{asset:path}")
 async def media(stream: str, asset: str, _: str = Depends(verify)):
-    if stream not in STREAMS or not asset or ".." in asset or not re.fullmatch(r"[a-zA-Z0-9_./-]+", asset):
+    if stream not in STREAMS or not asset or asset.startswith("/") or ".." in asset or not SAFE_ASSET.fullmatch(asset):
         raise HTTPException(status_code=404)
-    # MediaMTX is private on the Docker network; only authenticated clients reach it.
     target = f"{ORIGIN}/{quote(stream, safe='')}/{asset}"
-    async with httpx.AsyncClient(timeout=15.0, follow_redirects=False) as client:
-        try:
-            upstream = await client.get(target)
-        except httpx.RequestError:
-            raise HTTPException(status_code=503, detail="Streaming server unavailable")
-    if upstream.status_code != 200:
-        raise HTTPException(status_code=upstream.status_code, detail="Stream offline or not ready")
-    content_type = upstream.headers.get("content-type", "application/octet-stream")
-    return Response(upstream.content, media_type=content_type, headers={"Cache-Control": "no-store"})
+    client = httpx.AsyncClient(timeout=httpx.Timeout(20.0, connect=5.0), follow_redirects=False)
+    try:
+        req = client.build_request("GET", target)
+        upstream = await client.send(req, stream=True)
+        if upstream.status_code != 200:
+            await upstream.aclose()
+            await client.aclose()
+            raise HTTPException(status_code=404, detail="Stream offline")
+        async def bytes_iter():
+            try:
+                async for chunk in upstream.aiter_bytes():
+                    yield chunk
+            finally:
+                await upstream.aclose()
+                await client.aclose()
+        return StreamingResponse(bytes_iter(), media_type=upstream.headers.get("content-type", "application/octet-stream"), headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
+    except httpx.RequestError:
+        await client.aclose()
+        raise HTTPException(status_code=503, detail="Media server unavailable")
