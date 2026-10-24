@@ -1,0 +1,32 @@
+services:
+  mediamtx:
+    image: bluenviron/mediamtx:1
+    restart: unless-stopped
+    environment:
+      MTX_AUTHINTERNALUSERS_0_USER: ${PUBLISH_USER}
+      MTX_AUTHINTERNALUSERS_0_PASS: ${PUBLISH_PASSWORD}
+    volumes:
+      - ./mediamtx.yml:/mediamtx.yml:ro
+    ports:
+      - "1935:1935"
+    expose:
+      - "8888"
+  api:
+    build: ./api
+    restart: unless-stopped
+    environment:
+      VIEWER_USER: ${VIEWER_USER}
+      VIEWER_PASSWORD: ${VIEWER_PASSWORD}
+      MEDIAMTX_HLS: http://mediamtx:8888
+      STREAM_NAMES: ${STREAM_NAMES:-drone1}
+    depends_on:
+      - mediamtx
+    expose:
+      - "8000"
+  web:
+    build: ./web
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:80"
+    depends_on:
+      - api
