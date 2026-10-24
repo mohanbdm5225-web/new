@@ -7,26 +7,43 @@ services:
       MTX_AUTHINTERNALUSERS_0_PASS: ${PUBLISH_PASSWORD}
     volumes:
       - ./mediamtx.yml:/mediamtx.yml:ro
+      - recordings:/recordings
     ports:
       - "1935:1935"
-    expose:
-      - "8888"
+    expose: ["8888","9997"]
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:9997/v3/paths/list || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
   api:
     build: ./api
     restart: unless-stopped
+    env_file: .env
     environment:
-      VIEWER_USER: ${VIEWER_USER}
-      VIEWER_PASSWORD: ${VIEWER_PASSWORD}
       MEDIAMTX_HLS: http://mediamtx:8888
-      STREAM_NAMES: ${STREAM_NAMES:-drone1}
-    depends_on:
-      - mediamtx
-    expose:
-      - "8000"
+      MEDIAMTX_API: http://mediamtx:9997
+    depends_on: [mediamtx]
+    expose: ["8000"]
   web:
     build: ./web
     restart: unless-stopped
+    depends_on: [api]
+    expose: ["80"]
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:-localhost}
     ports:
-      - "127.0.0.1:8080:80"
-    depends_on:
-      - api
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on: [web]
+volumes:
+  recordings:
+  caddy_data:
+  caddy_config:
