@@ -1,0 +1,24 @@
+logLevel: info
+rtsp: false
+rtmp: true
+hls: true
+hlsAddress: :8888
+hlsVariant: mpegts
+hlsAlwaysRemux: true
+webrtc: false
+srt: false
+api: false
+metrics: false
+authMethod: internal
+authInternalUsers:
+  - user: publisher
+    pass: placeholder-overridden-by-compose
+    permissions:
+      - action: publish
+  - user: any
+    ips: ['172.16.0.0/12','127.0.0.1/32']
+    permissions:
+      - action: read
+paths:
+  all_others:
+    source: publisher
