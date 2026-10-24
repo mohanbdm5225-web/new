@@ -1,35 +1,56 @@
-# KICL Drone Live Streaming MVP
+# KICL Drone Live Streaming — Development release v0.2
 
-A first working baseline for Kothari Industrial Corporation Limited: RTMP video ingest with MediaMTX, FastAPI authentication/HLS gateway, and React browser dashboard. DJI Matrice 4T/4E integration **is not yet confirmed or tested**. Use a synthetic FFmpeg feed first.
+Kothari Industrial Corporation Limited (KICL) private drone video monitoring web application.
 
-## Architecture
-Publisher (drone/FFmpeg) -> Internet -> MediaMTX RTMP (:1935) -> private HLS (:8888) -> FastAPI Basic-auth proxy -> React via Nginx.
-Viewer and drone can use different internet networks.
+**Status:** source committed, deployment and drone interoperability not yet verified. Do not use for operational decisions until end-to-end acceptance tests pass.
 
-## Prerequisites
-- Linux VPS running Docker Engine and Docker Compose, or local Docker for testing.
-- Public IP/hostname and inbound TCP 1935 for RTMP.
-- HTTPS reverse proxy (such as Caddy) for internet-facing viewer access. **Do not expose port 8080 as HTTP publicly.**
+## Stack / capabilities
+- **MediaMTX** server: RTMP live ingest; HLS delivery; up to 7 days of rolling fMP4 recording on a persistent Docker volume.
+- **FastAPI**: HTTP Basic authentication and stream-status API; protected HLS proxy.
+- **React/Vite** dashboard: login, responsive player, drone dropdown, online status, periodic refresh.
+- **Caddy**: automatic HTTPS certificates when `SITE_ADDRESS` has working DNS.
+- **Docker Compose**: cloud/server deployment and restart policies.
+- **GitHub Actions**: static Python checks and build of frontend assets.
 
-## Run
-1. Copy `.env.example` to `.env`; set strong unique `PUBLISH_PASSWORD` and `VIEWER_PASSWORD`.
-2. Run `docker compose up -d --build`.
-3. Open `http://127.0.0.1:8080` locally, sign in using the `.env` viewer credentials.
-4. Publish a test stream with FFmpeg from another computer (replace values and avoid logging secrets):
-   `ffmpeg -re -f lavfi -i testsrc2=size=1280x720:rate=25 -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 50 -f flv "rtmp://SERVER_IP:1935/drone1?user=publisher&pass=PUBLISH_PASSWORD"`
-   If using `-re` with a live input, adjust arguments for your source.
-5. Select `drone1` in dashboard. HLS playlist is `/api/hls/drone1/index.m3u8`, gated by viewer authentication.
-6. For remote viewing, run a trusted HTTPS reverse proxy to `127.0.0.1:8080` on the VPS, use a DNS record and valid TLS certificate. Viewers open that HTTPS hostname from any network. Keep the Docker web binding on loopback only.
+## Install on a Linux VPS
+1. Create an A/AAAA record for your chosen hostname pointing at your VPS.
+2. On VPS, install Docker Engine + Docker Compose.
+3. Clone this repository's `kicl-drone-streaming-mvp` branch and change into `kicl-drone-live`.
+4. `cp .env.example .env`
+5. Set `SITE_ADDRESS=stream.example.com` (your actual domain) and replace **both** placeholder passwords with strong different random values. Use `chmod 600 .env`.
+6. Set firewall to allow inbound TCP 80/443, and TCP 1935 *only from your approved publisher address where feasible*. Never expose the private MediaMTX API or HLS origin.
+7. Start: `docker compose up -d --build`
+8. Confirm: `docker compose ps`, `docker compose logs --tail=100`.
+9. Access `https://YOUR_DOMAIN` on mobile data (not the publisher's local Wi-Fi). Sign in using VIEWER_USER/VIEWER_PASSWORD.
+10. Local-only testing: SITE_ADDRESS=localhost; browser `https://localhost` may require accepting a local certificate. Internet access needs working DNS and trusted TLS.
+
+## Synthetic video publishing
+On a separate machine with FFmpeg and internet, publish test video:
+```sh
+ffmpeg -re -f lavfi -i testsrc2=size=1280x720:rate=25 -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -g 50 -f flv "rtmp://SERVER_HOST:1935/drone1?user=publisher&pass=YOUR_PUBLISH_PASSWORD"
+```
+Set `PUBLISH_USER=publisher` unless you change the username in MediaMTX environment mapping. In the dashboard select `drone1`; status refreshes automatically.
 
 ## DJI Matrice 4T / 4E
-Verify exact controller firmware and Pilot 2 live-streaming capability. If the controller can publish RTMP, configure its server URL to point at the VPS and set `drone1` as its stream path. Otherwise implement a compatible bridge using the officially supported DJI interfaces. The RTMP URL accepts `user` and `pass` query parameters for MediaMTX authentication; protect credentials.
+The exact drone, controller, DJI Pilot 2 software and firmware must be checked for RTMP / supported Cloud API publishing. If supported, configure the controller stream endpoint to `rtmp://SERVER_HOST:1935/drone1` with the publishing credentials in the mechanism supported by the controller. A separate bridge may be required; **do not assume a DJI device accepts query-string credentials**.
 
-## Limits and hardening
-- MVP is HLS (seconds of delay), **not WebRTC low-latency**.
-- Browser test target is desktop/mobile Chromium/Firefox. Native Safari HLS credentials are not yet implemented.
-- Passwords are used in memory in the browser; HTTPS is mandatory remotely. No password persistence.
-- No cloud infrastructure has been provisioned. GitHub does not itself host the video service.
-- No production readiness claim: implement rate limiting, per-user accounts, stream authorization, audit logging, TURN/WebRTC if needed, retention policies, backups, and monitoring before deployment.
-- MediaMTX private HLS port must **not** be exposed from Docker.
-- RTMP TCP 1935 is unauthenticated until a valid publisher login; TLS for ingest (RTMPS/VPN) is recommended for production.
-- If controller cannot encode H.264/AAC compatible HLS, transcoding might be necessary.
+## Security and release limitations
+- **Not production-certified:** test authentication, browser compatibility, resource usage, latency, failover and drone connection in a controlled environment.
+- HLS runs through HTTPS with an authenticated API proxy, but browser credentials are kept only in memory. Current MVP uses one shared viewer login rather than per-user RBAC and has no audit logs.
+- RTMP ingest on TCP 1935 is **unencrypted**. For deployment over untrusted networks, terminate RTMPS with a supported proxy or use a VPN; restrict the port at firewall until secured.
+- Safari/iOS native HLS auth is not yet implemented; Chrome/Firefox testing is recommended.
+- MediaMTX recording is stored in a Docker volume and automatically deleted after 7 days. Files are not yet downloadable through the dashboard.
+- The API does not directly expose the MediaMTX admin API on the public network.
+- `SITE_ADDRESS` must be a hostname for trusted automatic public TLS.
+- Playback is HLS and typically has seconds of latency; WebRTC/TURN requires later integration.
+- No drone control commands are offered by this application.
+
+## Acceptance checklist
+- [ ] Docker Compose services healthy and frontend loads with HTTPS.
+- [ ] Incorrect credentials rejected; correct viewer login accepted.
+- [ ] FFmpeg publishes from external network; correct stream becomes Online.
+- [ ] Viewer opens from separate mobile/cellular network.
+- [ ] Stream switching works for two independent publishers.
+- [ ] Recording saved in volume and 7-day retention confirmed.
+- [ ] Public firewall blocks origin API ports and protects publisher.
+- [ ] DJI Pilot 2 controller interoperability tested on actual Matrice 4T/4E.
