@@ -1,0 +1,25 @@
+name: Verify KICL Drone Live
+on:
+  push:
+    branches: [kicl-drone-streaming-mvp]
+    paths: ['kicl-drone-live/**']
+  pull_request:
+    paths: ['kicl-drone-live/**']
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: kicl-drone-live
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: '3.12'}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - name: Check Python syntax
+        run: python -m py_compile api/main.py
+      - name: Build React frontend
+        run: cd web && npm install && npm run build
+      - name: Validate Compose config
+        run: cp .env.example .env && docker compose config --quiet
